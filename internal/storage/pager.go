@@ -33,7 +33,12 @@ func (p *Pager) Write(id PageID, data []byte) (int, error) {
 	if len(data) != PAGE_SIZE {
 		return 0, fmt.Errorf("Invalid page size")
 	}
-	// write the data after the offset
 	offset := int64(id) * PAGE_SIZE
 	return p.file.WriteAt(data, offset)
+}
+
+// PAGES ARE ZERO-INDEXED
+func (p *Pager) NextPageID() PageID {
+	stat, _ := p.file.Stat()
+	return PageID(stat.Size() / PAGE_SIZE)
 }
