@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"io"
 	"os"
 )
@@ -29,16 +28,19 @@ func (p *Pager) ReadPage(id PageID) ([]byte, error) {
 	return buff, nil
 }
 
-func (p *Pager) WritePage(id PageID, data []byte) (int, error) {
-	if len(data) != PAGE_SIZE {
-		return 0, fmt.Errorf("Invalid page size")
-	}
+func (p *Pager) WritePage(id PageID, Page []byte) (int, error) {
+	// if len(data) != PAGE_SIZE {
+	// 	return 0, fmt.Errorf("Invalid page size")
+	// }
 	offset := int64(id) * PAGE_SIZE
-	return p.file.WriteAt(data, offset)
+	return p.file.WriteAt(Page, offset)
 }
 
 // PAGES ARE ZERO-INDEXED
 func (p *Pager) NextPageID() PageID {
-	stat, _ := p.file.Stat()
+	stat, err := p.file.Stat()
+	if err != nil {
+		panic(err)
+	}
 	return PageID(stat.Size() / PAGE_SIZE)
 }
