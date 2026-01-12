@@ -10,3 +10,12 @@ type Table struct {
 	Schema []types.Column
 	Heap   *storage.Heap
 }
+
+func (t *Table) Insert(row types.Row) {
+	data := storage.EncodeRow(row)
+	t.Heap.Insert(data)
+}
+
+func (t *Table) Scan(cb func(types.Row) bool) {
+	t.Heap.Iterate(t.Schema, cb)
+}
