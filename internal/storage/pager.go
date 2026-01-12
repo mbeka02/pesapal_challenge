@@ -18,7 +18,7 @@ func NewPager(path string) (*Pager, error) {
 	return &Pager{file: f}, nil
 }
 
-func (p *Pager) Read(id PageID) ([]byte, error) {
+func (p *Pager) ReadPage(id PageID) ([]byte, error) {
 	buff := make([]byte, PAGE_SIZE)
 	offset := int64(id) * PAGE_SIZE
 
@@ -29,7 +29,7 @@ func (p *Pager) Read(id PageID) ([]byte, error) {
 	return buff, nil
 }
 
-func (p *Pager) Write(id PageID, data []byte) (int, error) {
+func (p *Pager) WritePage(id PageID, data []byte) (int, error) {
 	if len(data) != PAGE_SIZE {
 		return 0, fmt.Errorf("Invalid page size")
 	}
