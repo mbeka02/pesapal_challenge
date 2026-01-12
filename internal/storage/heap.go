@@ -55,10 +55,11 @@ func DecodeRow(data []byte, schema []types.Column) types.Row {
 func (h *Heap) Insert(data []byte) {
 	pageID := h.pager.NextPageID()
 	page := make([]byte, PAGE_SIZE)
-
+	// first 4 bytes are for the row count
 	binary.LittleEndian.PutUint32(page[0:4], 1)
+	// next 4 bytes are  for the row length
 	binary.LittleEndian.PutUint32(page[4:8], uint32(len(data)))
-
+	// row data
 	copy(page[8:], data)
 
 	h.pager.WritePage(pageID, page)
