@@ -5,6 +5,8 @@ type DataType int
 const (
 	INT DataType = iota
 	TEXT
+	BOOLEAN
+	FLOAT
 )
 
 type Column struct {
