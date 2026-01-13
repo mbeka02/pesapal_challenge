@@ -29,6 +29,7 @@ func EncodeRow(row types.Row) []byte {
 			binary.Write(buff, binary.LittleEndian, int64(t))
 		case float64:
 			binary.Write(buff, binary.LittleEndian, t)
+			// remember booleans are a byte
 		case bool:
 			var b int8 = 0
 			if t {
@@ -73,6 +74,13 @@ func DecodeRow(data []byte, schema []types.Column) types.Row {
 	return row
 }
 
+/*
+Iterate() scans through all the pages
+For each page, reads the number of cells from the header
+For each cell, reads its slot to get offset and length
+Extracts the data, decodes it using the schema, and calls the callback
+Stops early if callback returns false
+*/
 func (h *Heap) Iterate(schema []types.Column, cb func(types.Row) bool) {
 	numPages := h.pager.NextPageID()
 	for i := PageID(0); i < numPages; i++ {
@@ -98,8 +106,22 @@ func (h *Heap) Iterate(schema []types.Column, cb func(types.Row) bool) {
 	}
 }
 
+/*
+My slotted page implementation
++----------------+
+| Header (4B)    |  <- Fixed size header
++----------------+
+| Slot Array     |  <- Grows downward (4B per slot)
++----------------+
+|                |
+| Free Space     |  <- Shrinks as data is added
+|                |
++----------------+
+| Data Cells     |  <- Grows upward from end of page
++----------------+
+*/
 func (h *Heap) Insert(data []byte) {
-	// Try the last page first
+	// try and insert in the last page first , it might have space
 	nextPageID := h.pager.NextPageID()
 	if nextPageID > 0 {
 		lastPageID := nextPageID - 1
@@ -114,17 +136,24 @@ func (h *Heap) Insert(data []byte) {
 		}
 	}
 
-	// Allocate new page
+	// allocate new page
 	pageID := nextPageID
 	page := make([]byte, PAGE_SIZE)
-	h.initPage(page)
+	h.initializePage(page)
+	// just panic if the row can't fit
 	if !h.insertIntoPage(page, data) {
 		panic("Row too large for empty page")
 	}
 	h.pager.WritePage(pageID, page)
 }
 
-func (h *Heap) initPage(page []byte) {
+/*
+initializePage() creates a new page with the header
+The header has a fixed size of 4 bytes
+Bytes 0-2: NumCells (uint16) - number of records stored
+Bytes 2-4: DataStart (uint16) - offset where data region begins (grows backward from PAGE_SIZE)
+*/
+func (h *Heap) initializePage(page []byte) {
 	// Header:
 	// 0-2: NumCells (uint16) = 0
 	// 2-4: DataStart (uint16) = PAGE_SIZE
@@ -133,11 +162,11 @@ func (h *Heap) initPage(page []byte) {
 }
 
 func (h *Heap) insertIntoPage(page []byte, data []byte) bool {
+	// gets how many records exist and where the data region currently starts.
 	numCells := binary.LittleEndian.Uint16(page[0:2])
 	dataStart := binary.LittleEndian.Uint16(page[2:4])
 
-	// Calculate free space
-	// Free Space is between the end of the last slot and the start of data.
+	// headerEnd is where the slot array ends (header + all existing slots). The free space is the gap between the end of the slot array and the start of the data region.
 	headerEnd := PAGE_HEADER_SIZE + numCells*SLOT_SIZE
 	freeSpace := int(dataStart) - int(headerEnd)
 
@@ -147,19 +176,19 @@ func (h *Heap) insertIntoPage(page []byte, data []byte) bool {
 		return false
 	}
 
-	// Update DataStart
+	// update DataStart
 	newDataStart := dataStart - uint16(len(data))
 
-	// Write Data
+	// write Data
 	copy(page[newDataStart:], data)
 
-	// Write Slot
-	// Slot: Offset (uint16), Size (uint16)
+	// write Slot
+	// slot: Offset (uint16), Size (uint16)
 	slotOffset := headerEnd
 	binary.LittleEndian.PutUint16(page[slotOffset:slotOffset+2], newDataStart)
 	binary.LittleEndian.PutUint16(page[slotOffset+2:slotOffset+4], uint16(len(data)))
 
-	// Update Header
+	// update Header
 	binary.LittleEndian.PutUint16(page[0:2], numCells+1)
 	binary.LittleEndian.PutUint16(page[2:4], newDataStart)
 
