@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/mbeka02/pesapal_challenge/internal/types"
 )
@@ -14,11 +13,13 @@ const (
 )
 
 type Heap struct {
-	pager *Pager
+	pager     *Pager
+	startPage PageID
+	numPages  uint32
 }
 
-func NewHeap(pager *Pager) *Heap {
-	return &Heap{pager}
+func NewHeap(pager *Pager, start PageID) *Heap {
+	return &Heap{pager: pager, startPage: start, numPages: 0}
 }
 
 func EncodeRow(row types.Row) []byte {
@@ -82,13 +83,13 @@ Extracts the data, decodes it using the schema, and calls the callback
 Stops early if callback returns false
 */
 func (h *Heap) Iterate(schema []types.Column, cb func(types.Row) bool) {
-	numPages := h.pager.NextPageID()
-	for i := PageID(0); i < numPages; i++ {
-		page, err := h.pager.ReadPage(i)
+	// numPages := h.pager.NextPageID()
+	for i := uint32(0); i < h.numPages; i++ {
+		pageID := h.startPage + PageID(i)
+		page, err := h.pager.ReadPage(pageID)
 		if err != nil {
 			continue
 		}
-
 		numCells := binary.LittleEndian.Uint16(page[0:2])
 		for cellIdx := uint16(0); cellIdx < numCells; cellIdx++ {
 			slotOffset := PAGE_HEADER_SIZE + cellIdx*SLOT_SIZE
@@ -122,29 +123,37 @@ My slotted page implementation
 */
 func (h *Heap) Insert(data []byte) {
 	// try and insert in the last page first , it might have space
-	nextPageID := h.pager.NextPageID()
-	if nextPageID > 0 {
-		lastPageID := nextPageID - 1
-		page, err := h.pager.ReadPage(lastPageID)
-		if err == nil {
-			if h.insertIntoPage(page, data) {
-				h.pager.WritePage(lastPageID, page)
-				return
-			}
-		} else {
-			fmt.Printf("Error reading last page: %v\n", err)
+	// nextPageID := h.pager.NextPageID()
+	// if nextPageID > 0 {
+	// 	lastPageID := nextPageID - 1
+	// 	page, err := h.pager.ReadPage(lastPageID)
+	// 	if err == nil {
+	// 		if h.insertIntoPage(page, data) {
+	// 			h.pager.WritePage(lastPageID, page)
+	// 			return
+	// 		}
+	// 	} else {
+	// 		fmt.Printf("Error reading last page: %v\n", err)
+	// 	}
+	// }
+	if h.numPages > 0 {
+		lastPage := h.startPage + PageID(h.numPages-1)
+		page, err := h.pager.ReadPage(lastPage)
+		if err == nil && h.insertIntoPage(page, data) {
+			h.pager.WritePage(lastPage, page)
+			return
 		}
 	}
-
 	// allocate new page
-	pageID := nextPageID
+	newPageID := h.startPage + PageID(h.numPages)
 	page := make([]byte, PAGE_SIZE)
 	h.initializePage(page)
 	// just panic if the row can't fit
 	if !h.insertIntoPage(page, data) {
 		panic("Row too large for empty page")
 	}
-	h.pager.WritePage(pageID, page)
+	h.pager.WritePage(newPageID, page)
+	h.numPages++
 }
 
 /*

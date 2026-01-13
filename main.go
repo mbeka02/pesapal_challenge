@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to open the database:%v", err)
 	}
-	heap := storage.NewHeap(database.Pager)
+	heap := storage.NewHeap(database.Pager, 0)
 
 	users := &db.Table{
 		Name: "users",
@@ -42,4 +42,3 @@ func main() {
 		return true
 	})
 }
-
