@@ -123,19 +123,7 @@ My slotted page implementation
 */
 func (h *Heap) Insert(data []byte) {
 	// try and insert in the last page first , it might have space
-	// nextPageID := h.pager.NextPageID()
-	// if nextPageID > 0 {
-	// 	lastPageID := nextPageID - 1
-	// 	page, err := h.pager.ReadPage(lastPageID)
-	// 	if err == nil {
-	// 		if h.insertIntoPage(page, data) {
-	// 			h.pager.WritePage(lastPageID, page)
-	// 			return
-	// 		}
-	// 	} else {
-	// 		fmt.Printf("Error reading last page: %v\n", err)
-	// 	}
-	// }
+
 	if h.numPages > 0 {
 		lastPage := h.startPage + PageID(h.numPages-1)
 		page, err := h.pager.ReadPage(lastPage)
