@@ -191,3 +191,13 @@ func (h *Heap) insertIntoPage(page []byte, data []byte) bool {
 
 	return true
 }
+
+// InsertRaw inserts a raw record into a specific page.
+// Used by system components like the catalog.
+func (h *Heap) InsertRaw(page []byte, data []byte) bool {
+	return h.insertIntoPage(page, data)
+}
+
+func (h *Heap) SetNumPages(numPages uint32) {
+	h.numPages = numPages
+}
