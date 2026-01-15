@@ -34,7 +34,7 @@ func main() {
 	users.Insert(types.Row{1, "Trevor", true, 95.5})
 	users.Insert(types.Row{2, "Jane", false, 88.0})
 	users.Insert(types.Row{3, "Bob", false, 72.3})
-	// products.Insert(types.Row{1, "Jik", 100.0})
+	products.Insert(types.Row{1, "Jik", 100.0})
 	fmt.Println("Scanning data...")
 	users.Scan(func(row types.Row) bool {
 		fmt.Printf("ID: %v, Name: %v, Admin: %v, Score: %v\n", row[0], row[1], row[2], row[3])

@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 
 	"github.com/mbeka02/pesapal_challenge/internal/types"
 )
@@ -13,9 +14,10 @@ const (
 )
 
 type Heap struct {
-	pager     *Pager
-	startPage PageID
-	numPages  uint32
+	pager          *Pager
+	startPage      PageID
+	numPages       uint32
+	growthCallback func(uint32)
 }
 
 func NewHeap(pager *Pager, start PageID) *Heap {
@@ -142,6 +144,14 @@ func (h *Heap) Insert(data []byte) {
 	}
 	h.pager.WritePage(newPageID, page)
 	h.numPages++
+
+	// notify catalog of growth
+	if h.growthCallback != nil {
+		log.Println("before=>", h.numPages)
+		h.growthCallback(h.numPages)
+		log.Println("after=>", h.numPages)
+
+	}
 }
 
 /*
@@ -200,4 +210,8 @@ func (h *Heap) InsertRaw(page []byte, data []byte) bool {
 
 func (h *Heap) SetNumPages(numPages uint32) {
 	h.numPages = numPages
+}
+
+func (h *Heap) SetGrowthCallback(cb func(uint32)) {
+	h.growthCallback = cb
 }
