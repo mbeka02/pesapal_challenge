@@ -1,47 +1,83 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"log"
 	"os"
+	"strings"
 
 	"github.com/mbeka02/pesapal_challenge/internal/db"
-	"github.com/mbeka02/pesapal_challenge/internal/types"
+	"github.com/mbeka02/pesapal_challenge/internal/executor"
+	"github.com/mbeka02/pesapal_challenge/internal/parser"
 )
 
 func main() {
-	// start fresh to avoid layout conflicts
 	os.Remove("test.db")
-
 	database, err := db.OpenDB("test.db")
 	if err != nil {
-		log.Fatalf("unable to open the database:%v", err)
+		fmt.Printf("Error opening database: %v\n", err)
+		os.Exit(1)
 	}
-	fmt.Println("Inserting data...")
-	database.CreateTable("users", []types.Column{
-		{Name: "id", Type: types.INT},
-		{Name: "name", Type: types.TEXT},
-		{Name: "is_admin", Type: types.BOOLEAN},
-		{Name: "score", Type: types.FLOAT},
-	})
-	database.CreateTable("products", []types.Column{
-		{Name: "id", Type: types.INT},
-		{Name: "name", Type: types.TEXT},
-		{Name: "price", Type: types.FLOAT},
-	})
-	users := database.Tables["users"]
-	products := database.Tables["products"]
-	users.Insert(types.Row{1, "Trevor", true, 95.5})
-	users.Insert(types.Row{2, "Jane", false, 88.0})
-	users.Insert(types.Row{3, "Bob", false, 72.3})
-	products.Insert(types.Row{1, "Jik", 100.0})
-	fmt.Println("Scanning data...")
-	users.Scan(func(row types.Row) bool {
-		fmt.Printf("ID: %v, Name: %v, Admin: %v, Score: %v\n", row[0], row[1], row[2], row[3])
-		return true
-	})
-	products.Scan(func(row types.Row) bool {
-		fmt.Printf("ID: %v, Name: %v, Price: %v\n", row[0], row[1], row[2])
-		return true
-	})
+
+	exec := executor.NewExecutor(database)
+
+	fmt.Println("╔════════════════════════════════════════╗")
+	fmt.Println("║   Simple Go RDBMS - SQL Interface     ║")
+	fmt.Println("╚════════════════════════════════════════╝")
+	fmt.Println("Type SQL commands (end with ;) or 'exit' to quit")
+	fmt.Println()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	var inputBuffer strings.Builder
+
+	for {
+		if inputBuffer.Len() == 0 {
+			fmt.Print("sql> ")
+		} else {
+			fmt.Print("  -> ")
+		}
+
+		if !scanner.Scan() {
+			break
+		}
+
+		line := strings.TrimSpace(scanner.Text())
+
+		if line == "exit" || line == "quit" {
+			fmt.Println("Goodbye!")
+			break
+		}
+
+		if line == "" {
+			continue
+		}
+
+		// Accumulate input until we see a semicolon
+		inputBuffer.WriteString(line)
+		inputBuffer.WriteString(" ")
+
+		if !strings.HasSuffix(line, ";") {
+			continue
+		}
+
+		// handle a complete statement
+		input := inputBuffer.String()
+		inputBuffer.Reset()
+
+		// Parse and execute
+		sql, err := parser.Parse(input)
+		if err != nil {
+			fmt.Printf("Error: %v\n\n", err)
+			continue
+		}
+
+		result, err := exec.Execute(sql)
+		if err != nil {
+			fmt.Printf("Error: %v\n\n", err)
+			continue
+		}
+
+		fmt.Println(result)
+		fmt.Println()
+	}
 }
